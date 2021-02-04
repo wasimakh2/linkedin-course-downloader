@@ -3,9 +3,18 @@ import os , json , tkinter as tk
 
 def insert_into_list_box():
     course_name = string_course.get()
-    if course_name :
+    if course_name and course_name not in listbox.get(0,'end'):
         listbox.insert(tk.END, course_name)
         e_course.delete(0, 'end')
+    else:
+        messagebox.showinfo("Adding Course", "{} already exists :)".format(course_name))
+        e_course.delete(0, 'end')
+
+def delete_from_list_box():
+    selection = listbox.curselection()
+    if not selection : messagebox.showinfo("Deleting Course", "You have to select a course first :( ") 
+    else : listbox.delete(selection)
+
 
 def load_required_info():
     required_info_path = os.path.join(os.path.dirname(__file__), 'required_info.json')
@@ -38,12 +47,12 @@ e_email         = tk.Entry(master,width=40,textvariable=string_email)
 string_pass     = tk.StringVar(value=cached_info['linkedin_password'])
 e_pass          = tk.Entry(master,width=40,textvariable=string_pass)
 string_course   = tk.StringVar()
-e_course        = tk.Entry(master,width=35,textvariable=string_course)
+e_course        = tk.Entry(master,width=40,textvariable=string_course)
 lb1_values      = tk.Variable()
 listbox         = tk.Listbox(master,width=40,listvariable=lb1_values)
 for course in cached_info['courses_links']:
     course = course.split('/learning/')[1] if '/learning/' in course else course
-    listbox.insert(tk.END, course)
+    if course : listbox.insert(tk.END, course)
 
 e_email.grid(row=0, column=1)
 e_pass.grid(row=1, column=1)
@@ -52,7 +61,8 @@ listbox.grid(row=3, column=1)
 
 
 # tk.Button(master, text='Quit', command=master.quit).grid(row=8, column=0, sticky=tk.W,pady=4)
-tk.Button(master, text='addToCourses',command=insert_into_list_box).grid(row=2, column=0, sticky=tk.W, pady=4)
+tk.Button(master, text='Add a course',command=insert_into_list_box).grid(row=2, column=0, sticky=tk.W, pady=4)
+tk.Button(master, text='Remove selected',command=delete_from_list_box).grid(row=3, column=0, sticky=tk.W, pady=4)
 tk.Button(master, text='Save All the data To required_info.json',command=save_data).grid(row=4, column=1, sticky=tk.W, pady=4)
 
 
