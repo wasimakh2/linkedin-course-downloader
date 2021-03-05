@@ -185,9 +185,11 @@ def download_file(url, output):
             r =  session.get(url, stream=True)
                 # if not r.headers.get('content-length','') : return
             r.raise_for_status()
+            chunk_size      = 8192
+            total_length    = int(r.headers.get('content-length',0))
+            total_length    = chunk_size if total_length == 0 else (total_length/1024) + 1
             with open(output, 'wb') as f:
-                total_length = int(r.headers.get('content-length',0))
-                for chunk in progress.bar(r.iter_content(chunk_size=8192), expected_size=(total_length/1024) + 1): 
+                for chunk in progress.bar(r.iter_content(chunk_size=chunk_size), expected_size=total_length): 
                     if chunk:
                         f.write(chunk)
                         f.flush()
