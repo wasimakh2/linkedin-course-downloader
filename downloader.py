@@ -35,6 +35,9 @@ def process():
 
     except Exception as e:
         logging.error(f"[!] Connection Error: {e}")
+    except KeyboardInterrupt:
+        logging.error("[!] Exiting Quitly :)")
+
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ Dependencies:
 Python 3
 requests
 lxml
-clint
+tqdm
 pickle
 
 Please use this script for your own purposes.

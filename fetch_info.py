@@ -2,7 +2,7 @@
 import logging , re, os 
 from itertools import chain, filterfalse, starmap
 from collections import namedtuple
-from clint.textui import progress
+from tqdm import tqdm
 
 BASE_DOWNLOAD_PATH = os.path.join(os.path.dirname(__file__), "downloads")
 
@@ -15,7 +15,7 @@ session = None
 FILE_TYPE_VIDEO = ".mp4"
 FILE_TYPE_SUBTITLE = ".srt"
 
-Course = namedtuple("Course", ["name", "slug", "description", "unlocked", "chapters"])
+Course = namedtuple("Course", ["name", "slug", "description", "unlocked", "chapters","author"])
 Chapter = namedtuple("Chapter", ["name", "videos", "index"])
 Video = namedtuple("Video", ["name", "slug", "index", "filename"])
 
@@ -35,10 +35,11 @@ def clean_dir_name(dir_name):
 def chapter_dir(course: Course, chapter: Chapter):
     folder_name = f"{str(chapter.index).zfill(2)} - {clean_dir_name(chapter.name)}"
     if folder_name == '01 - ':folder_name = '01 - Welcome'
-    chapter_path = os.path.join(BASE_DOWNLOAD_PATH, clean_dir_name(course.name), folder_name)
+    chapter_path = os.path.join(BASE_DOWNLOAD_PATH, course.author + " - " + clean_dir_name(course.name), folder_name)
     return chapter_path
 
 def build_course(course_element: dict):
+    author = " ".join(course_element['authors'][0]['slug'].split('-')).title()
     chapters = [
         Chapter(name=course['title'],
                 videos=[
@@ -51,9 +52,16 @@ def build_course(course_element: dict):
                 ],index=idx)
         for idx, course in enumerate(course_element['chapters'], start=1)
     ]
+    course = Course(name=course_element['title'],
+                    slug=course_element['slug'],
+                    description=course_element['description'],
+                    unlocked=course_element['fullCourseUnlocked'],
+                    chapters=chapters,
+                    author=author)
+    
     logging.info(f'[*] Fetching course {course_element["title"]} Exercise Files')    
     if course_element.get('exerciseFiles',''):
-        chapter_path = os.path.join(BASE_DOWNLOAD_PATH, clean_dir_name(course_element['title']), 'Exercise Files')
+        chapter_path = os.path.join(BASE_DOWNLOAD_PATH, author + " - " + clean_dir_name(course.name), 'Exercise Files')
 
         if not os.path.exists(chapter_path) : os.makedirs(chapter_path)
         for exercise in course_element['exerciseFiles']:
@@ -62,11 +70,6 @@ def build_course(course_element: dict):
             logging.info(f'[~] writing course {course_element["title"]} Exercise Files')
             download_file(file_link, os.path.join(chapter_path,file_name))
             logging.info(f'[*] Finished writing course {course_element["title"]} Exercise Files')
-    course = Course(name=course_element['title'],
-                    slug=course_element['slug'],
-                    description=course_element['description'],
-                    unlocked=course_element['fullCourseUnlocked'],
-                    chapters=chapters)
     return course
 
 def fetch_courses(sess,COURSES):
@@ -127,7 +130,7 @@ def fetch_video(course: Course, chapter: Chapter, video: Video):
     if video_exists and subtitle_exists:
         return
 
-    logging.info(f"[~] Fetching course '{course.name}' Chapter no. {chapter.index} Video no. {video.index}")
+    logging.info(f"[~] Fetching Chapter no. {chapter.index} Video no. {video.index}")
     
     video_url = f'https://www.linkedin.com/learning-api/detailedCourses?addParagraphsToTranscript=false&courseSlug={course.slug}&q=slugs&resolution=_720&videoSlug={video.slug}'
     data = None
@@ -162,7 +165,7 @@ def fetch_video(course: Course, chapter: Chapter, video: Video):
         subtitle_lines = subtitles['lines']            
         write_subtitles(subtitle_lines, subtitle_file_path, duration_in_ms)
 
-    logging.info(f"[~] Done fetching course '{course.name}' Chapter no. {chapter.index} Video no. {video.index}")
+    logging.info(f"[~] Done fetching Chapter no. {chapter.index} Video no. {video.index}")
 
 
 def write_subtitles(subs, output_path, video_duration):
@@ -179,20 +182,22 @@ def write_subtitles(subs, output_path, video_duration):
             f.write(line.encode('utf8'))
 
 
-def download_file(url, output):
+def download_file(url, output_path):
     if url:
         try:
-            r =  session.get(url, stream=True)
-                # if not r.headers.get('content-length','') : return
+            r           =  session.get(url, stream=True)
+            file_name   = os.path.basename(output_path)
+            file_size   = int(r.headers.get('content-length', 0))
+            initial_pos = 0
             r.raise_for_status()
-            chunk_size      = 8192
-            total_length    = int(r.headers.get('content-length',0))
-            total_length    = chunk_size if total_length == 0 else (total_length/1024) + 1
-            with open(output, 'wb') as f:
-                for chunk in progress.bar(r.iter_content(chunk_size=chunk_size), expected_size=total_length): 
-                    if chunk:
+            with open(output_path, 'wb') as f:
+                with tqdm(total=file_size, unit='B',
+                        unit_scale=True, unit_divisor=1024,
+                        desc=file_name, initial=initial_pos,
+                        ascii=True, miniters=1) as pbar:
+                    for chunk in r.iter_content(32 * 1024):
                         f.write(chunk)
-                        f.flush()
+                        pbar.update(len(chunk))
         except Exception as e:
             logging.info(url)
             logging.error(f"[!] Error while downloading: '{e}'")
