@@ -65,10 +65,15 @@ def build_course(course_element: dict):
 
         if not os.path.exists(chapter_path) : os.makedirs(chapter_path)
         for exercise in course_element['exerciseFiles']:
-            file_name = exercise['name']
-            file_link = exercise['url']
+            file_name       = exercise['name']
+            file_link       = exercise['url']
+            exercise_path   = os.path.join(chapter_path,file_name)
+            exercise_exists = os.path.exists(exercise_path)
             logging.info(f'[~] writing course {course_element["title"]} Exercise Files')
-            download_file(file_link, os.path.join(chapter_path,file_name))
+            if exercise_exists :
+                logging.info(f'[~] Exercise File {file_name} already Exists')                
+                continue
+            download_file(file_link,exercise_path)
             logging.info(f'[*] Finished writing course {course_element["title"]} Exercise Files')
     return course
 
